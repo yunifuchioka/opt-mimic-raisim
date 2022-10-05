@@ -139,12 +139,6 @@ class ENVIRONMENT : public RaisimGymEnv {
     // note: although this gets overridden by reset(), this seems to be necessary for correct rendering
     gc_init_ << 0, 0, 0.35, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, -0.0, -0.0, 0.0, -0.0, 0.0, -0.0;
 
-    // /// set pd gains for implicit PD control
-    // Eigen::VectorXd jointPgain(gvDim_), jointDgain(gvDim_);
-    // jointPgain.setZero(); jointPgain.tail(nJoints_).setConstant(3.0);
-    // jointDgain.setZero(); jointDgain.tail(nJoints_).setConstant(0.5);
-    // solo8_->setPdGains(jointPgain, jointDgain);
-
     /// set initial force to zero
     solo8_->setGeneralizedForce(Eigen::VectorXd::Zero(gvDim_));
 
@@ -159,7 +153,6 @@ class ENVIRONMENT : public RaisimGymEnv {
     horizon_ = 3;
     sensorDim_ = 20;
     actionDim_ = nJoints_; actionStd_.setZero(actionDim_);
-    // obDim_ = (horizon_ + 1) * sensorDim_ + horizon_ * actionDim_ + 2;
     obDim_ = sensorDim_ + 2;
     obDouble_.setZero(obDim_);
     sensor_reading_.setZero(sensorDim_);
@@ -277,10 +270,6 @@ class ENVIRONMENT : public RaisimGymEnv {
       joint_offset_[joint_idx] = jointOffsetDistribution_(gen_);
     }
 
-    // randomized imu drift angle
-    // imu_drift_angle_ = imuDriftDistribution_(gen_);
-    // imu_drift_angle_ = 0.0;
-
     // set inital conditions
     solo8_->setState(gc_init_, gv_init_);
     updateObservation();
@@ -296,14 +285,9 @@ class ENVIRONMENT : public RaisimGymEnv {
     pTarget12_ += joint_offset_; // randomized joint offset
     pTarget_.tail(nJoints_) = pTarget12_;
 
+    // comment or uncomment these lines to toggle feedforward configuration
     // vTarget_.tail(nJoints_) = ref_joint_vel_;
     torqueFeedforward_.tail(nJoints_) = ref_joint_torque_;
-
-    // // clip feedforward terms from reference motion
-    // double vel_clip = 3.0;
-    // double torque_clip = 1.0;
-    // vTarget_ << vTarget_.cwiseMin(vel_clip).cwiseMax(-vel_clip);
-    // torqueFeedforward_ << torqueFeedforward_.cwiseMin(torque_clip).cwiseMax(-torque_clip);
 
     max_torque_ = 0.0;
 
@@ -319,8 +303,6 @@ class ENVIRONMENT : public RaisimGymEnv {
       torqueCommand_.tail(nJoints_) *= torque_scale_;
 
       solo8_->setGeneralizedForce(torqueCommand_);
-      // solo8_->setPdTarget(pTarget_, vTarget_);
-      // solo8_->setGeneralizedForce(torqueFeedforward_);
 
       max_torque_ = std::max(
           max_torque_, torqueCommand_.tail(nJoints_).cwiseAbs().maxCoeff());
@@ -367,7 +349,6 @@ class ENVIRONMENT : public RaisimGymEnv {
     sim_step_ += 1;
 
     action_prev_ = action.cast<double>();
-    // action_prev_ = action.cast<double>() + ref_joint_pos_;
 
     total_reward_ += rewards_.sum();
     
@@ -411,31 +392,18 @@ class ENVIRONMENT : public RaisimGymEnv {
     raisim::Vec<4> imu_reading;
     imu_reading[0] = gc_[3]; imu_reading[1] = gc_[4]; imu_reading[2] = gc_[5]; imu_reading[3] = gc_[6];
 
-    // // simulate drift in the imu heading reading
-    // // note: apply to yaw for quadruped motions, apply to roll for biped motions (hack)
-    // raisim::Vec<3> imu_drift_euler;
-    // raisim::Vec<4> imu_drift;
-    // imu_drift_euler[0] = 0.0; imu_drift_euler[1] = 0.0; imu_drift_euler[2] = imu_drift_angle_;
-    // // imu_drift_euler[0] = imu_drift_angle_; imu_drift_euler[1] = 0.0; imu_drift_euler[2] = 0.0;
-    // raisim::eulerVecToQuat(imu_drift_euler, imu_drift);
-    // raisim::quatMul(quat, imu_drift, imu_reading);
-
     // // for debugging
     // raisim::quatToRotMat(imu_reading, rot);
     // std::cout << rot.e() << std::endl << std::endl;
     // std::cout << imu_reading.e().transpose() << std::endl;
 
     sensor_reading_ <<
-        // gc_[2], /// body height
         imu_reading.e(),
         gc_.tail(8) + joint_offset_, /// joint angles, with randomized joint offset
-        // bodyLinearVel_, bodyAngularVel_, /// body linear&angular velocity
         gv_.tail(8), /// joint velocity
 
     obDouble_ << 
         sensor_reading_,
-        // sensor_history_,
-        // action_history_,
         std::cos(2.0*M_PI * phase_/max_phase_), std::sin(2.0*M_PI * phase_/max_phase_); // phase
 
     // // uncomment to print observation components
@@ -476,11 +444,6 @@ class ENVIRONMENT : public RaisimGymEnv {
     if (disable_termination_) {
       return false;
     }
-
-    // /// if the contact body is not feet
-    // for(auto& contact: solo8_->getContacts())
-    //   if(footIndices_.find(contact.getlocalBodyIndex()) == footIndices_.end())
-    //     return true;
 
     // check for non-foot contacts and extract contact state of the four legs
     std::vector<bool> contact_state(4, false);
@@ -573,41 +536,14 @@ class ENVIRONMENT : public RaisimGymEnv {
     raisim::mattransposematmul(rot, rot2, rot_error);
     raisim::rotMatToQuat(rot_error, quat_error);
 
-    // // construct array versions of state and reference quaternions
-    // double quat_arr1[4];
-    // double quat_arr2[4];
-    // quat_arr1[0] = gc_(3);
-    // quat_arr1[1] = gc_(4);
-    // quat_arr1[2] = gc_(5);
-    // quat_arr1[3] = gc_(6);
-    // quat_arr2[0] = ref_body_quat_(0);
-    // quat_arr2[1] = ref_body_quat_(1);
-    // quat_arr2[2] = ref_body_quat_(2);
-    // quat_arr2[3] = ref_body_quat_(3);
-
-    // // convert quaternions to euler angles
-    // double euler_arr1[3];
-    // double euler_arr2[3];
-    // raisim::quatToEulerVec(quat_arr1, euler_arr1);
-    // raisim::quatToEulerVec(quat_arr2, euler_arr2);
-
-    // // store euler angles as vectors
-    // Eigen::Vector3d euler1;
-    // Eigen::Vector3d euler2;
-    // euler1 << euler_arr1[0], euler_arr1[1], euler_arr1[2];
-    // euler2 << euler_arr2[0], euler_arr2[1], euler_arr2[2];
-
     position_error_sq_ = (gc_.segment(0,3) - ref_body_pos_).squaredNorm();
     orientation_error_sq_ = quat_error.e().tail(3).squaredNorm();
-    // orientation_error_sq_ = (euler1 - euler2).head(2).squaredNorm(); // roll and pitch only (no yaw)
     joint_error_sq_ = (gc_.tail(8) - ref_joint_pos_).squaredNorm();
-    // action_diff_sq_ = (actionDouble - action_prev_).squaredNorm();
     if (action_prev_.squaredNorm() == 0.0) {
       action_diff_sq_ = 0.0;
     } else {
       action_diff_sq_ = (actionDouble - action_prev_).squaredNorm();
     }
-    // action_diff_sq_ = (actionDouble + ref_joint_pos_ - action_prev_).squaredNorm();
     // note: max_torque_ not calculated here
   }
 
