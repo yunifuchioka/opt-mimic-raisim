@@ -1,7 +1,6 @@
-# Ignore everything in repository root 
-/*
-
 # Files to not ignore
+/*/stats/*
+/*/training_curves/*
 !/.gitignore
 !/some_other_files
 

@@ -6,7 +6,7 @@ import time
 raisim.World.setLicenseFile(os.path.dirname(
     os.path.abspath(__file__)) + "/../../rsc/activation.raisim")
 anymal_urdf_file = os.path.dirname(os.path.abspath(
-    __file__)) + "/../../rsc/anymal/urdf/anymal.urdf"
+    __file__)) + "/../../rsc/go1/urdf/go1_v2.urdf"
 # laikago_urdf_file = os.path.dirname(os.path.abspath(__file__)) + "/../../rsc/laikago/laikago.urdf"
 # atlas_urdf_file = os.path.dirname(os.path.abspath(__file__)) + "/../../rsc/atlas/robot.urdf"
 # monkey_file = os.path.dirname(os.path.abspath(__file__)) + "/../../rsc/monkey/monkey.obj"

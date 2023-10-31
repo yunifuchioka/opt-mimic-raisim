@@ -19,8 +19,8 @@ examples/cmake-build*/*
 */data/*
 **/activation.raisim
 data/*
-*.csv
 **/.DS_Store
 # Added for raisimLibSolo
 **/__pycache__/
+**/.vscode
 raisim/linux/lib/raisimpy.cpython-37m-x86_64-linux-gnu.so
