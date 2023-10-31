@@ -19,7 +19,7 @@ examples/cmake-build*/*
 */data/*
 **/activation.raisim
 data/*
-*/*.csv
+*.csv
 **/.DS_Store
 # Added for raisimLibSolo
 **/__pycache__/
